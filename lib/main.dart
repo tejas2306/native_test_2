@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:permission_handler/permission_handler.dart';
 
+import 'Models/result.dart';
+
 void main() {
   runApp(const MyApp());
 }
@@ -18,7 +20,7 @@ class MyApp extends StatelessWidget {
       theme: ThemeData(
         primarySwatch: Colors.blue,
       ),
-      home: const MyHomePage(title: 'Flutter Demo Home Page'),
+      home: const MyHomePage(title: 'Flutter EspTouch Test App'),
     );
   }
 }
@@ -34,45 +36,57 @@ class MyHomePage extends StatefulWidget {
 
 class _MyHomePageState extends State<MyHomePage> {
   static const platform = MethodChannel('samples.flutter.dev/battery');
-  String _batteryLevel = 'Unknown battery level.';
+  Result wifiResult = Result();
+  final TextEditingController _passwordController = TextEditingController();
 
-  void _incrementCounter() async {
-    String batteryLevel;
-
-    bool status = await askPermissions();
-    if (status) {
-      try {
-        final result = await platform.invokeMethod(
-            'getWifiDetails', <String, dynamic>{"Password": 123123});
-        debugPrint(json.decode(result)["bssid"]);
-        batteryLevel = 'SSID : ${json.decode(result)["bssid"]}';
-      } on PlatformException catch (e) {
-        batteryLevel = "Failed to get Wifi Details: '${e.message}'.";
-      }
-      setState(() {
-        _batteryLevel = batteryLevel;
-      });
-    }
+  @override
+  void initState() {
+    super.initState();
+    _getWifiDetails();
   }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: Text(widget.title),
       ),
-      body: Center(
+      body: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 15.0),
         child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisAlignment: MainAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
+            const SizedBox(height: 20),
             Text(
-              _batteryLevel,
-              style: Theme.of(context).textTheme.headline4,
+              "SSID    : ${wifiResult.ssid}",
+              style: Theme.of(context)
+                  .textTheme
+                  .headline6!
+                  .copyWith(fontWeight: FontWeight.normal),
             ),
+            const SizedBox(height: 10),
+            Text(
+              "BSSID  : ${wifiResult.bssid}",
+              style: Theme.of(context)
+                  .textTheme
+                  .headline6!
+                  .copyWith(fontWeight: FontWeight.normal),
+            ),
+            const SizedBox(height: 20),
+            TextField(
+              controller: _passwordController,
+              decoration: const InputDecoration(
+                label: Text("Password"),
+                border: OutlineInputBorder(
+                    borderRadius: BorderRadius.all(Radius.circular(10))),
+              ),
+            )
           ],
         ),
       ),
       floatingActionButton: FloatingActionButton(
-        onPressed: _incrementCounter,
+        onPressed: _transmit,
         tooltip: 'Increment',
         child: const Icon(Icons.add),
       ),
@@ -84,5 +98,41 @@ class _MyHomePageState extends State<MyHomePage> {
       return true;
     }
     return false;
+  }
+
+  void _getWifiDetails() async {
+    bool status = await askPermissions();
+    if (status) {
+      try {
+        final result = await platform.invokeMethod(
+            'getWifiDetails', <String, dynamic>{"Password": 123123});
+
+        if (result != null) {
+          wifiResult = Result.fromJson(json.decode(result));
+        }
+      } on PlatformException catch (e) {
+        debugPrint(e.message);
+      }
+      setState(() {});
+    }
+  }
+
+  _transmit()async {
+      try {
+        final result = await platform.invokeMethod(
+            'transmit', <String, dynamic>{
+            "Password": "123123",
+            "ssid":wifiResult.ssid,
+            "bssid":wifiResult.bssid,
+            "isBroadcast": true,
+            });
+
+        if (result != null) {
+          wifiResult = Result.fromJson(json.decode(result));
+        }
+      } on PlatformException catch (e) {
+        debugPrint(e.message);
+      }
+      setState(() {});
   }
 }
